@@ -1,0 +1,249 @@
+
+You are a senior backend engineer specialized in web crawlers, scraping systems, and scalable Node.js infrastructure.
+
+Your task is to build a production-ready web crawler API in Node.js + TypeScript.
+
+GOALS:
+- Support single URL scraping
+- Support batch scraping (array of URLs)
+- Support crawling with two strategies:
+  1) Domain-only crawling
+  2) Full-link crawling (all discovered links)
+- Track discovered links, total pages scraped, crawl depth, errors, and duration
+- Design the system to scale later using Redis and worker pools
+
+CONSTRAINTS:
+- Use Node.js 20+ and TypeScript
+- Use Fastify for the API
+- Use Undici for HTTP requests
+- Use Cheerio for HTML parsing
+- Playwright must be OPTIONAL and used only as a fallback
+- No over-engineering in early phases
+- All logic must be modular and testable
+- Enforce maxDepth, maxPages, timeouts, and concurrency limits
+- Prevent duplicate crawling
+
+ARCHITECTURE RULES:
+- Separate API, crawler engine, fetcher, parser, and queue logic
+- Use a queue-based crawl algorithm (BFS)
+- Normalize and deduplicate URLs
+- Respect domain restrictions when enabled
+- Expose crawl progress via job IDs
+
+OUTPUT EXPECTATIONS:
+- Clean folder structure
+- Strong TypeScript types
+- Clear README with usage examples
+- Well-commented code
+```
+
+---
+
+# 🧭 EXECUTION PLAN FOR THE AGENT
+
+## PHASE 1 — Project Setup
+
+### Tasks
+
+1. Initialize project
+
+   * Node.js 20
+   * TypeScript
+   * Fastify
+2. Configure:
+
+   * ESLint
+   * Prettier
+   * tsconfig
+3. Create basic health endpoint
+
+### Deliverables
+
+* `/health` endpoint
+* Working TS build
+
+---
+
+## PHASE 2 — Single URL Scraper
+
+### Responsibilities
+
+* Fetch HTML
+* Parse content
+* Extract links
+* Normalize URLs
+
+### Required Output
+
+```json
+{
+  "url": "...",
+  "title": "...",
+  "text": "...",
+  "links": ["..."]
+}
+```
+
+### Modules
+
+```
+/crawler
+  fetcher.ts
+  parser.ts
+  extractor.ts
+  url-normalizer.ts
+```
+
+---
+
+## PHASE 3 — Batch Scraping
+
+### Tasks
+
+* Accept array of URLs
+* Process concurrently
+* Aggregate results and stats
+
+### Stats to Track
+
+* Total URLs
+* Success count
+* Failure count
+* Duration
+
+---
+
+## PHASE 4 — Crawl Engine (Core)
+
+### Crawl Algorithm
+
+* BFS queue
+* Visited Set
+* Depth tracking
+
+### Crawl Options
+
+```ts
+interface CrawlOptions {
+  strategy: "domain" | "all";
+  maxDepth: number;
+  maxPages: number;
+  concurrency: number;
+}
+```
+
+### Rules
+
+* Do not exceed limits
+* Deduplicate URLs
+* Apply domain filtering if enabled
+
+---
+
+## PHASE 5 — Job System
+
+### Tasks
+
+* Generate jobId
+* Track progress in memory
+* Expose:
+
+  * `/crawl/:jobId/status`
+  * `/crawl/:jobId/result`
+
+### Metrics
+
+* pagesScraped
+* linksDiscovered
+* errors
+* start/end timestamps
+
+---
+
+## PHASE 6 — Safety & Politeness
+
+### Implement
+
+* Request timeout
+* Max response size
+* Rate limiting (Bottleneck)
+* User-Agent header
+* robots.txt toggle (optional)
+
+---
+
+## PHASE 7 — Redis Readiness (NOT Full Implementation)
+
+### Do
+
+* Abstract queue interface
+* Abstract visited store
+* Leave in-memory implementation
+
+### Purpose
+
+* Swap Redis later without refactor
+
+---
+
+## PHASE 8 — Documentation
+
+### README Must Include
+
+* API usage examples
+* Crawl strategies explanation
+* Limits & safety notes
+* Scaling roadmap
+
+---
+
+# 🧱 SUGGESTED FOLDER STRUCTURE
+
+```
+src/
+  api/
+    routes/
+      crawl.ts
+      status.ts
+  crawler/
+    engine.ts
+    queue.ts
+    rules.ts
+    metrics.ts
+    fetcher.ts
+    parser.ts
+    extractor.ts
+    normalizer.ts
+  jobs/
+    job-manager.ts
+  utils/
+    logger.ts
+    timer.ts
+  types/
+    crawl.ts
+server.ts
+```
+
+---
+
+# 🎯 SUCCESS CRITERIA
+
+Your agent is DONE when:
+
+* A crawl job can be started via API
+* Progress can be queried
+* Crawl respects domain & limits
+* Results include discovered links and metrics
+* System is ready for Redis + workers
+
+---
+
+# 🔥 OPTIONAL AGENT INSTRUCTIONS (HIGHLY RECOMMENDED)
+
+Add this at the end if your agent tends to overbuild:
+
+```
+Do not add Kubernetes, Redis, or Playwright until the core crawler works.
+Focus on correctness, safety, and clean abstractions.
+Ship small, testable steps.
+```

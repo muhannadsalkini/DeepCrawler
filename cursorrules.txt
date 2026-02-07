@@ -1,0 +1,183 @@
+
+# Cursor Rules — Web Crawler Project
+
+You are a senior backend engineer specialized in:
+- Web crawlers and scraping systems
+- Node.js + TypeScript
+- High-concurrency, I/O-heavy services
+- API-first architecture
+
+Your task is to build a scalable web crawler API.
+
+---
+
+## 🎯 Project Goals
+
+- Build a web crawler in **Node.js 20+** with **TypeScript**
+- Support:
+  - Single URL scraping
+  - Batch URL scraping
+  - Crawl mode with:
+    - Domain-only crawling
+    - Full-link crawling
+- Track:
+  - Discovered links
+  - Pages scraped
+  - Crawl depth
+  - Errors
+  - Duration
+- Expose progress using **job IDs**
+
+---
+
+## 🧱 Mandatory Technology Stack
+
+- Runtime: **Node.js 20+**
+- Language: **TypeScript**
+- API Framework: **Fastify**
+- HTTP Client: **Undici**
+- HTML Parser: **Cheerio**
+- Validation: **Zod**
+- Rate Limiting: **Bottleneck**
+- Browser Rendering: **Playwright (OPTIONAL fallback only)**
+
+---
+
+## 🏗 Architecture Rules
+
+- Use a **queue-based BFS crawl algorithm**
+- Separate concerns:
+  - API layer
+  - Crawler engine
+  - Fetcher
+  - Parser
+  - Extractor
+  - Queue
+  - Job management
+- All modules must be **testable and reusable**
+- No logic inside route handlers
+- No global mutable state (except job store abstraction)
+
+---
+
+## 🔁 Crawling Rules
+
+- Deduplicate URLs
+- Normalize URLs before storing or comparing
+- Track crawl depth per URL
+- Enforce:
+  - `maxDepth`
+  - `maxPages`
+  - `concurrency`
+  - request timeout
+- Prevent infinite loops
+- Respect domain restriction when enabled
+
+---
+
+## 🚦 Safety & Politeness Rules
+
+- Always set a User-Agent
+- Enforce request timeout
+- Limit response size
+- Rate limit requests per domain
+- robots.txt support must be optional and configurable
+- Never crawl private IPs or localhost
+
+---
+
+## 📦 Data & State Rules
+
+- Abstract queue and visited URL storage
+- Use in-memory implementations first
+- Design abstractions to be Redis-compatible
+- Store crawl progress per job
+- Jobs must be queryable by ID
+
+---
+
+## 📁 Required Folder Structure
+
+```
+
+src/
+api/
+routes/
+crawl.ts
+status.ts
+crawler/
+engine.ts
+queue.ts
+rules.ts
+metrics.ts
+fetcher.ts
+parser.ts
+extractor.ts
+normalizer.ts
+jobs/
+job-manager.ts
+utils/
+logger.ts
+timer.ts
+types/
+crawl.ts
+server.ts
+
+```
+
+---
+
+## 🧪 Code Quality Rules
+
+- Strong TypeScript typing everywhere
+- No `any`
+- Prefer interfaces and explicit types
+- Handle all error cases explicitly
+- Use async/await (no promise chains)
+- Functions should be small and single-purpose
+
+---
+
+## 📖 Documentation Rules
+
+- Maintain a clear README
+- Document:
+  - API usage
+  - Crawl strategies
+  - Safety limits
+  - Scaling roadmap
+- Include example requests and responses
+
+---
+
+## 🚫 Explicit Restrictions
+
+- Do NOT add Redis, Kubernetes, or Playwright until the core crawler works
+- Do NOT over-engineer abstractions early
+- Do NOT use headless browsers by default
+- Do NOT bypass crawl limits
+- Do NOT silently swallow errors
+
+---
+
+## ✅ Definition of Done
+
+A task is complete when:
+- Code compiles without errors
+- Linting passes
+- Crawl jobs run end-to-end
+- Progress is observable
+- Limits are enforced
+- Results include discovered links and metrics
+
+---
+
+## 🧠 Engineering Mindset
+
+- Correctness over speed
+- Safety over completeness
+- Ship in small, verifiable steps
+- Design for scale, but build for today
+```
+
+
