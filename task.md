@@ -15,27 +15,27 @@
 - [x] Verify build works
 
 ## Phase 2: Single URL Scraper
-- [ ] Create fetcher module
-- [ ] Create HTML parser module
-- [ ] Create link extractor module
-- [ ] Create URL normalizer
-- [ ] Build single URL scraper endpoint
-- [ ] Test single URL scraping
+- [x] Create fetcher module
+- [x] Create HTML parser module
+- [x] Create link extractor module
+- [x] Create URL normalizer
+- [x] Build single URL scraper endpoint
+- [x] Test single URL scraping
 
 ## Phase 3: Batch Scraping
-- [ ] Create batch processing logic
-- [ ] Implement concurrency control
-- [ ] Add stats aggregation
-- [ ] Build batch scraping endpoint
-- [ ] Test batch scraping
+- [x] Create batch processing logic
+- [x] Implement concurrency control
+- [x] Add stats aggregation
+- [x] Build batch scraping endpoint
+- [x] Test batch scraping
 
 ## Phase 4: Crawl Engine
-- [ ] Implement BFS queue
-- [ ] Create visited set tracking
-- [ ] Add depth tracking
-- [ ] Implement domain filtering
-- [ ] Add crawl limits enforcement
-- [ ] Test crawl engine
+- [x] Implement BFS queue
+- [x] Create visited set tracking
+- [x] Add depth tracking
+- [x] Implement domain filtering
+- [x] Add crawl limits enforcement
+- [x] Test crawl engine
 
 ## Phase 5: Job System
 - [ ] Create job manager

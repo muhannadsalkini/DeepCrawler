@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import { logger } from './utils/logger.js';
+import { scrapeRoutes } from './api/routes/scrape.js';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -16,6 +17,9 @@ export async function build() {
       timestamp: Date.now(),
     };
   });
+
+  // Register API routes
+  await fastify.register(scrapeRoutes);
 
   return fastify;
 }
