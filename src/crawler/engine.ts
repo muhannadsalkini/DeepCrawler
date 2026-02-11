@@ -66,10 +66,26 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
       // Fetch and parse page
       logger.debug('Crawling URL', { url, depth, parentUrl });
 
-      const fetchResult = await fetch(url, {
-        timeout: options.timeout,
-        userAgent: process.env.USER_AGENT || 'DeepCrawler/1.0',
-      });
+      // Check robots.txt if enabled
+      const respectRobots = process.env.RESPECT_ROBOTS_TXT === 'true';
+      if (respectRobots) {
+        const { robotsChecker } = await import('../utils/robots.js');
+        const isAllowed = await robotsChecker.isAllowed(url, process.env.USER_AGENT);
+
+        if (!isAllowed) {
+          logger.debug('URL blocked by robots.txt', { url });
+          continue;
+        }
+      }
+
+      // Use rate limiter for fetch
+      const { rateLimiter } = await import('../utils/rate-limiter.js');
+      const fetchResult = await rateLimiter.schedule(() =>
+        fetch(url, {
+          timeout: options.timeout,
+          userAgent: process.env.USER_AGENT || 'DeepCrawler/1.0',
+        })
+      );
 
       const parsed = parse(fetchResult.html, url);
       const links = extractLinks(parsed.links, url);

@@ -38,20 +38,20 @@
 - [x] Test crawl engine
 
 ## Phase 5: Job System
-- [ ] Create job manager
-- [ ] Implement job ID generation
-- [ ] Add progress tracking
-- [ ] Build status endpoint
-- [ ] Build result endpoint
-- [ ] Test job system
+- [x] Create job manager
+- [x] Implement job ID generation
+- [x] Add progress tracking
+- [x] Build status endpoint
+- [x] Build result endpoint
+- [x] Test job system
 
 ## Phase 6: Safety & Politeness
-- [ ] Add request timeout
-- [ ] Implement max response size
-- [ ] Set up rate limiting with Bottleneck
-- [ ] Add User-Agent configuration
-- [ ] Add robots.txt toggle
-- [ ] Test safety features
+- [x] Add request timeout
+- [x] Implement max response size
+- [x] Set up rate limiting with Bottleneck
+- [x] Add User-Agent configuration
+- [x] Add robots.txt toggle
+- [x] Test safety features
 
 ## Phase 7: Redis Readiness
 - [ ] Abstract queue interface
