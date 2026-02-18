@@ -1,241 +1,365 @@
-# DeepCrawler Project Documentation
+# 🕷️ DeepCrawler
 
-## Overview
+A production-ready web crawler API built with Node.js and TypeScript. Fast, scalable, and respectful.
 
-DeepCrawler is a production-ready web crawler API built with Node.js and TypeScript. It supports single URL scraping, batch processing, and intelligent crawling with configurable strategies and safety limits.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## 🎯 Project Goals
+## ✨ Features
 
-- **Single URL Scraping**: Extract content, title, text, and links from any URL
-- **Batch Scraping**: Process multiple URLs concurrently with aggregated results
-- **Intelligent Crawling**: Two crawl strategies:
-  - **Domain-only**: Stay within the same domain
-  - **Full-link**: Follow all discovered links
-- **Progress Tracking**: Monitor crawl jobs in real-time via job IDs
-- **Scalable Design**: Architecture ready for Redis and worker pools
+- **🎯 Single URL Scraping** - Extract content, title, and links from any URL
+- **📦 Batch Processing** - Scrape multiple URLs concurrently  
+- **🌐 BFS Crawling** - Intelligent breadth-first search algorithm
+- **⚡ Async Job System** - Track progress in real-time with job IDs
+- **🛡️ Safety First** - Rate limiting, robots.txt, size limits, timeouts
+- **📊 Real-time Metrics** - Pages scraped, links discovered, errors tracked
+- **🔄 Redis Ready** - Abstracted storage for horizontal scaling
+- **🚀 Production Ready** - PM2, Docker, clustering support
 
-## 🧱 Technology Stack
+## 🚀 Quick Start
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Runtime | Node.js 20+ | Modern JavaScript runtime |
-| Language | TypeScript | Type safety and better DX |
-| API Framework | Fastify | High-performance HTTP server |
-| HTTP Client | Undici | Fast, modern HTTP client |
-| HTML Parser | Cheerio | jQuery-like HTML parsing |
-| Validation | Zod | Schema validation |
-| Rate Limiting | Bottleneck | Request rate control |
-| Browser (Optional) | Playwright | Fallback for JS-heavy sites |
+### Installation
 
-## 🏗 Architecture
+```bash
+git clone <repository-url> deepcrawler
+cd deepcrawler
+npm install
+cp .env.example .env
+```
 
-DeepCrawler follows a modular, layered architecture:
+### Development
 
-```mermaid
-graph TB
-    subgraph "API Layer"
-        A[Fastify Server]
-        B[Route Handlers]
-    end
+```bash
+npm run dev
+```
+
+Server runs at `http://localhost:3000`
+
+### Production
+
+```bash
+npm run build
+npm start
+```
+
+## 📖 API Usage Examples
+
+### 1. Single URL Scrape
+
+```bash
+curl -X POST http://localhost:3000/api/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com"}'
+```
+
+**Response:**
+```json
+{
+  "url": "https://example.com/",
+  "title": "Example Domain",
+  "text": "Example Domain This domain is for use...",
+  "links": ["https://iana.org/domains/example"],
+  "meta": {}
+}
+```
+
+### 2. Batch Scrape
+
+```bash
+curl -X POST http://localhost:3000/api/scrape/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urls": ["https://example.com", "https://example.org"],
+    "concurrency": 2
+  }'
+```
+
+### 3. Start Crawl Job
+
+```bash
+curl -X POST http://localhost:3000/api/crawl \
+  -H "Content-Type: application/json" \
+  -d '{
+    "startUrl": "https://example.com",
+    "strategy": "domain",
+    "maxDepth": 3,
+    "maxPages": 50
+  }'
+```
+
+**Response (202 Accepted):**
+```json
+{
+  "jobId": "job_1770795898430_c694653ea97c",
+  "status": "pending",
+  "message": "Crawl job created successfully"
+}
+```
+
+### 4. Check Job Status
+
+```bash
+curl http://localhost:3000/api/crawl/job_1770795898430_c694653ea97c
+```
+
+**Response (Running):**
+```json
+{
+  "jobId": "job_1770795898430_c694653ea97c",
+  "status": "running",
+  "metrics": {
+    "pagesScraped": 15,
+    "linksDiscovered": 87,
+    "errors": 0,
+    "currentDepth": 2
+  }
+}
+```
+
+### 5. Get Job Results
+
+```bash
+curl http://localhost:3000/api/crawl/job_1770795898430_c694653ea97c/result
+```
+
+### JavaScript Example
+
+```javascript
+async function crawlWebsite(url) {
+  // 1. Start crawl
+  const { jobId } = await fetch('http://localhost:3000/api/crawl', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      startUrl: url,
+      strategy: 'domain',
+      maxDepth: 2,
+      maxPages: 20
+    })
+  }).then(r => r.json());
+  
+  console.log(`Job created: ${jobId}`);
+  
+  // 2. Poll for completion
+  let job;
+  do {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    job = await fetch(`http://localhost:3000/api/crawl/${jobId}`)
+      .then(r => r.json());
+    console.log(`Status: ${job.status}, Pages: ${job.metrics?.pagesScraped || 0}`);
+  } while (job.status === 'pending' || job.status === 'running');
+  
+  // 3. Get results
+  if (job.status === 'completed') {
+    const { result } = await fetch(
+      `http://localhost:3000/api/crawl/${jobId}/result`
+    ).then(r => r.json());
     
-    subgraph "Job Management"
-        C[Job Manager]
-        D[Progress Tracker]
-    end
-    
-    subgraph "Crawler Engine"
-        E[Crawl Engine]
-        F[BFS Queue]
-        G[URL Normalizer]
-        H[Rules Engine]
-    end
-    
-    subgraph "Content Processing"
-        I[Fetcher - Undici]
-        J[Parser - Cheerio]
-        K[Link Extractor]
-    end
-    
-    A --> B
-    B --> C
-    C --> E
-    E --> F
-    E --> G
-    E --> H
-    E --> I
-    I --> J
-    J --> K
-    K --> F
-    E --> D
-    D --> C
+    console.log(`Total pages: ${result.pages.length}`);
+    return result;
+  }
+}
 ```
 
-### Key Components
+## 🚀 Deployment
 
-#### API Layer
-- **Fastify Server**: Handles HTTP requests and responses
-- **Route Handlers**: Clean separation of routes and business logic
+### Option 1: PM2 (Recommended)
 
-#### Job Management
-- **Job Manager**: Creates, tracks, and manages crawl jobs
-- **Progress Tracker**: Real-time metrics and status updates
+```bash
+# Install PM2
+npm install -g pm2
 
-#### Crawler Engine
-- **Crawl Engine**: Orchestrates the entire crawl process
-- **BFS Queue**: Breadth-first search implementation
-- **URL Normalizer**: Ensures consistent URL format
-- **Rules Engine**: Enforces limits and filters
+# Build application
+npm run build
 
-#### Content Processing
-- **Fetcher**: Downloads HTML content using Undici
-- **Parser**: Extracts structured data using Cheerio
-- **Link Extractor**: Discovers and normalizes links
-
-## 📁 Project Structure
-
-```
-DeepCrawler/
-├── src/
-│   ├── api/
-│   │   └── routes/
-│   │       ├── crawl.ts          # Crawl endpoints
-│   │       └── status.ts         # Status endpoints
-│   ├── crawler/
-│   │   ├── engine.ts             # Main crawl orchestrator
-│   │   ├── queue.ts              # BFS queue implementation
-│   │   ├── rules.ts              # Crawl rules and filters
-│   │   ├── metrics.ts            # Progress tracking
-│   │   ├── fetcher.ts            # HTTP fetching
-│   │   ├── parser.ts             # HTML parsing
-│   │   ├── extractor.ts          # Link extraction
-│   │   └── normalizer.ts         # URL normalization
-│   ├── jobs/
-│   │   └── job-manager.ts        # Job lifecycle management
-│   ├── utils/
-│   │   ├── logger.ts             # Logging utilities
-│   │   └── timer.ts              # Timing utilities
-│   ├── types/
-│   │   └── crawl.ts              # TypeScript types
-│   └── server.ts                 # Entry point
-├── tests/
-├── .env.example
-├── tsconfig.json
-├── package.json
-└── README.md
+# Start with PM2 cluster mode
+pm2 start dist/server.js --name deepcrawler -i max
+pm2 save
+pm2 startup
 ```
 
-## 🔁 Crawling Strategies
-
-### Domain-Only Crawling
-Stays within the same domain as the starting URL.
-
-**Use cases:**
-- Site mapping
-- Content auditing
-- SEO analysis
-
-**Example:**
-```
-Start: https://example.com/page1
-✓ https://example.com/page2
-✓ https://example.com/blog/post
-✗ https://other-site.com/page
+**PM2 Commands:**
+```bash
+pm2 status              # Check status
+pm2 logs deepcrawler    # View logs
+pm2 restart deepcrawler # Restart
+pm2 monit               # Monitor
 ```
 
-### Full-Link Crawling
-Follows all discovered links regardless of domain.
+### Option 2: Docker
 
-**Use cases:**
-- Web archiving
-- Research
-- Discovery
+**docker-compose.yml:**
+```yaml
+version: '3.8'
 
-**Example:**
+services:
+  deepcrawler:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - STORAGE_TYPE=redis
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  redis-data:
 ```
-Start: https://example.com/page1
-✓ https://example.com/page2
-✓ https://other-site.com/page
-✓ https://third-site.com/resource
+
+**Deploy:**
+```bash
+docker-compose up -d
+docker-compose logs -f deepcrawler
 ```
 
-## 🚦 Safety & Politeness
+### Option 3: Manual
 
-DeepCrawler implements several safety mechanisms:
+```bash
+# Build
+npm run build
 
-- **Request Timeout**: Prevents hanging on slow sites
-- **Max Response Size**: Limits memory usage
-- **Rate Limiting**: Prevents overwhelming servers
-- **User-Agent**: Identifies the crawler
-- **Concurrency Limits**: Controls parallel requests
-- **Depth Limits**: Prevents infinite crawls
-- **Page Limits**: Caps total pages scraped
-- **robots.txt**: Optional respect for site preferences
-- **IP Filtering**: Blocks private/localhost crawling
+# Start
+NODE_ENV=production node dist/server.js
+```
 
-## 📊 Metrics & Tracking
+## ⚙️ Configuration
 
-Each crawl job tracks:
+Key environment variables in `.env`:
 
-| Metric | Description |
-|--------|-------------|
-| `pagesScraped` | Total pages successfully processed |
-| `linksDiscovered` | Unique links found |
-| `errors` | Count and details of failures |
-| `depth` | Current and maximum depth reached |
-| `duration` | Total crawl time |
-| `status` | Current job state |
+```bash
+# Server
+PORT=3000
+NODE_ENV=production
 
-## 🔮 Future Scalability
+# Storage
+STORAGE_TYPE=memory  # or 'redis' for production
 
-The architecture is designed for future enhancements:
+# Redis (if using Redis)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=your-secure-password
 
-### Phase 1: Redis Integration
-- Move queue to Redis
-- Distributed visited set
-- Persistent job storage
+# Safety & Politeness
+RESPECT_ROBOTS_TXT=true
+MIN_REQUEST_TIME=1000
+DEFAULT_TIMEOUT=10000
+MAX_RESPONSE_SIZE=10485760
 
-### Phase 2: Worker Pools
-- Separate API and workers
-- Horizontal scaling
-- Load balancing
+# Limits
+DEFAULT_MAX_DEPTH=3
+DEFAULT_MAX_PAGES=100
+DEFAULT_CONCURRENCY=5
+```
 
-### Phase 3: Advanced Features
-- JavaScript rendering (Playwright)
-- Content extraction rules
-- Data export formats
-- Webhook notifications
+## 📊 API Endpoints
 
-## 📝 Development Phases
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/api/scrape` | POST | Single URL scrape |
+| `/api/scrape/batch` | POST | Batch scrape |
+| `/api/crawl` | POST | Start crawl job |
+| `/api/crawl/:jobId` | GET | Job status |
+| `/api/crawl/:jobId/result` | GET | Job results |
 
-The project is built in 8 phases:
+## �️ Safety Features
 
-1. **Project Setup** - Initialize tooling and health endpoint
-2. **Single URL Scraper** - Core scraping functionality
-3. **Batch Scraping** - Concurrent processing
-4. **Crawl Engine** - BFS algorithm and strategies
-5. **Job System** - Progress tracking and status
-6. **Safety & Politeness** - Rate limiting and guards
-7. **Redis Readiness** - Interface abstractions
-8. **Documentation** - Comprehensive guides and examples
+- ✅ Request timeout (10s default)
+- ✅ Response size limit (10MB default)
+- ✅ Rate limiting (1 req/sec default)
+- ✅ Robots.txt compliance (optional)
+- ✅ Private IP blocking
+- ✅ Depth & page limits
+- ✅ User-Agent identification
 
-## ✅ Success Criteria
+## 📈 Scaling
 
-The project is complete when:
+DeepCrawler is ready for horizontal scaling:
 
-- ✅ Crawl jobs can be started via API
-- ✅ Progress can be queried in real-time
-- ✅ Domain and limit restrictions are enforced
-- ✅ Results include discovered links and metrics
-- ✅ System is ready for Redis and worker migration
-- ✅ Documentation is comprehensive and clear
+1. **Enable Redis** - Set `STORAGE_TYPE=redis`
+2. **Run Multiple Instances** - PM2 cluster or Docker scaling
+3. **Add Load Balancer** - Nginx or cloud LB
+4. **Monitor** - Logs, metrics, health checks
 
-## 🔗 Quick Links
+### Nginx Load Balancer
 
-- [Architecture Guide](./ARCHITECTURE.md)
-- [API Documentation](./API.md)
-- [Development Guide](./DEVELOPMENT.md)
-- [Task Breakdown](./task.md)
+```nginx
+upstream deepcrawler {
+    least_conn;
+    server localhost:3001;
+    server localhost:3002;
+    server localhost:3003;
+}
+
+server {
+    listen 80;
+    server_name crawler.example.com;
+
+    location / {
+        proxy_pass http://deepcrawler;
+        proxy_set_header Host $host;
+        proxy_read_timeout 300s;
+    }
+}
+```
+
+## 🏗️ Architecture
+
+```
+API Layer → Job Manager → Crawl Engine → Fetcher/Parser
+                              ↓
+                        BFS Queue + Visited Set
+                              ↓
+                        Storage (Memory/Redis)
+```
+
+### Crawl Strategies
+
+**Domain Strategy** - Stays within same domain  
+**All Strategy** - Follows all links
+
+## 🔧 Development
+
+```bash
+npm run dev          # Development mode
+npm run build        # Build TypeScript
+npm run type-check   # Type checking
+npm run lint         # Lint code
+npm run lint:fix     # Fix linting
+npm run format       # Format code
+npm test             # Run tests
+```
+
+## 📚 Documentation
+
+- **[Task Breakdown](./task.md)** - Complete development checklist  
+- **[Architecture Guide](./ARCHITECTURE.md)** - Technical design
+- **[Development Guide](./DEVELOPMENT.md)** - Contributing workflow
+
+## 🙏 Acknowledgments
+
+Built with:
+- [Fastify](https://www.fastify.io/) - Web framework
+- [Undici](https://github.com/nodejs/undici) - HTTP client
+- [Cheerio](https://cheerio.js.org/) - HTML parsing
+- [Bottleneck](https://github.com/SGrondin/bottleneck) - Rate limiting
+- [Zod](https://zod.dev/) - Validation
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Next Steps**: See [task.md](./task.md) for the complete development checklist.
+**Made with ❤️ for the web crawling community**

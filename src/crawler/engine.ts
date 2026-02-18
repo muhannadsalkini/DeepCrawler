@@ -4,7 +4,7 @@
  */
 
 import { CrawlOptions, CrawlResult, PageData, CrawlError, QueueItem } from '../types/crawl.js';
-import { CrawlQueue } from './queue.js';
+import { createQueueStorage, createVisitedStorage } from '../storage/factory.js';
 import { CrawlRules } from './rules.js';
 import { MetricsTracker } from './metrics.js';
 import { fetch } from './fetcher.js';
@@ -19,8 +19,8 @@ import { Timer } from '../utils/timer.js';
  */
 export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
   const timer = new Timer();
-  const queue = new CrawlQueue();
-  const visited = new Set<string>();
+  const queue = createQueueStorage();
+  const visited = createVisitedStorage();
   const rules = new CrawlRules(options);
   const metrics = new MetricsTracker();
 
@@ -29,7 +29,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
 
   // Normalize and enqueue start URL
   const startUrl = normalizeUrl(options.startUrl);
-  queue.enqueue({ url: startUrl, depth: 0 });
+  await queue.enqueue({ url: startUrl, depth: 0 });
 
   logger.info('Crawl started', {
     startUrl,
@@ -39,19 +39,19 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
   });
 
   // BFS crawl loop
-  while (!queue.isEmpty()) {
-    const current = queue.dequeue();
+  while (!(await queue.isEmpty())) {
+    const current = await queue.dequeue();
     if (!current) break;
 
     const { url, depth, parentUrl } = current;
 
     // Skip if already visited
-    if (visited.has(url)) {
+    if (await visited.has(url)) {
       continue;
     }
 
     // Mark as visited
-    visited.add(url);
+    await visited.add(url);
 
     // Check if we should crawl this URL
     if (!rules.shouldCrawl(url, depth, metrics.getMetrics().pagesScraped)) {
@@ -119,7 +119,7 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
           parentUrl: url,
         }));
 
-        queue.enqueueMany(newItems);
+        await queue.enqueueMany(newItems);
       }
     } catch (error) {
       const err = error as Error;

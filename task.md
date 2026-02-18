@@ -54,14 +54,14 @@
 - [x] Test safety features
 
 ## Phase 7: Redis Readiness
-- [ ] Abstract queue interface
-- [ ] Abstract visited store interface
-- [ ] Implement in-memory versions
-- [ ] Document Redis migration path
+- [x] Abstract queue interface
+- [x] Abstract visited store interface
+- [x] Implement in-memory versions
+- [x] Document Redis migration path
 
 ## Phase 8: Documentation & Polish
-- [ ] Write comprehensive README
-- [ ] Add API usage examples
-- [ ] Document crawl strategies
-- [ ] Add scaling roadmap
-- [ ] Create deployment guide
+- [x] Write comprehensive README
+- [x] Add API usage examples
+- [x] Document crawl strategies
+- [x] Add scaling roadmap
+- [x] Create deployment guide
