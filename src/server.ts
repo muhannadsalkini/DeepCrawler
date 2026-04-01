@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import { logger } from './utils/logger.js';
+import { authPlugin } from './api/middleware/auth.js';
 import { scrapeRoutes } from './api/routes/scrape.js';
 import { crawlRoutes } from './api/routes/crawl.js';
 
@@ -11,7 +12,11 @@ export async function build() {
     logger: false, // Using custom logger
   });
 
-  // Health check endpoint
+  // ── Authentication: registered BEFORE routes so every route is protected ──
+  // /health is exempted inside the plugin itself.
+  await fastify.register(authPlugin);
+
+  // Health check endpoint (unauthenticated — exempted by authPlugin)
   fastify.get('/health', async () => {
     return {
       status: 'ok',
