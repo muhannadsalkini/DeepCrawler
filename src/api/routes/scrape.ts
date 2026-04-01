@@ -9,6 +9,7 @@ import { fetch } from '../../crawler/fetcher.js';
 import { parse } from '../../crawler/parser.js';
 import { extractLinks } from '../../crawler/extractor.js';
 import { normalizeUrl } from '../../crawler/normalizer.js';
+import { assertSafeUrl } from '../../utils/ssrf-guard.js';
 import { logger } from '../../utils/logger.js';
 
 // Request validation schema
@@ -38,6 +39,9 @@ export async function scrapeRoutes(fastify: FastifyInstance): Promise<void> {
 
       // Normalize URL
       const normalizedUrl = normalizeUrl(url);
+
+      // ── SSRF guard: reject private/internal URLs before fetching ──────────
+      await assertSafeUrl(normalizedUrl);
 
       // Fetch HTML
       const fetchResult = await fetch(normalizedUrl, {
@@ -101,6 +105,28 @@ export async function scrapeRoutes(fastify: FastifyInstance): Promise<void> {
       const { urls, concurrency } = validation.data;
 
       logger.info('Batch scrape request received', { urlCount: urls.length, concurrency });
+
+      // ── SSRF guard: validate every URL before dispatching the batch ───────
+      // We validate all URLs upfront so we fail fast with a clear error
+      // rather than letting safe URLs succeed while blocked ones error mid-batch.
+      const ssrfErrors: string[] = [];
+      await Promise.all(
+        urls.map(async (rawUrl) => {
+          try {
+            const normalized = normalizeUrl(rawUrl);
+            await assertSafeUrl(normalized);
+          } catch (err) {
+            ssrfErrors.push(`${rawUrl}: ${(err as Error).message}`);
+          }
+        })
+      );
+
+      if (ssrfErrors.length > 0) {
+        return reply.status(400).send({
+          error: 'One or more URLs failed the SSRF safety check',
+          blocked: ssrfErrors,
+        });
+      }
 
       // Import batch scraper
       const { batchScrape } = await import('../../crawler/batch.js');
