@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import rateLimit from '@fastify/rate-limit';
 import { logger } from './utils/logger.js';
 import { authPlugin } from './api/middleware/auth.js';
 import { scrapeRoutes } from './api/routes/scrape.js';
@@ -10,6 +11,19 @@ const HOST = process.env.HOST || '0.0.0.0';
 export async function build() {
   const fastify = Fastify({
     logger: false, // Using custom logger
+  });
+
+  // ── Rate limiting: registered first to protect against DoS/flooding ───────
+  // Applies globally to every route. The /health endpoint is also covered,
+  // which is intentional — health checks should not be hammerable either.
+  await fastify.register(rateLimit, {
+    global: true,
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
+    timeWindow: '1 minute',
+    errorResponseBuilder: (_request, context) => ({
+      error: 'Too many requests',
+      message: `Rate limit exceeded. Try again in ${Math.ceil(context.ttl / 1000)} seconds.`,
+    }),
   });
 
   // ── Authentication: registered BEFORE routes so every route is protected ──
