@@ -2,12 +2,17 @@
  * Job Manager
  * Manages crawl job lifecycle and storage
  *
- * Unbounded In-Memory Job Growth:
+ * Unbounded In-Memory Job Growth (VULN-004 — fixed):
  *  - MAX_JOBS: hard cap on total stored jobs (active + completed/failed).
  *    createJob() throws when the cap is reached, preventing unbounded growth.
  *  - Automatic cleanup: a setInterval fires every JOB_CLEANUP_INTERVAL_MS
  *    to evict completed/failed jobs older than JOB_TTL_MS, keeping the
  *    in-memory map bounded even under sustained load.
+ *
+ * No Concurrent Job Limit (VULN-005 — fixed):
+ *  - MAX_CONCURRENT_JOBS: hard cap on jobs whose status is 'pending' or
+ *    'running'. createJob() throws (→ HTTP 429) when this limit is reached,
+ *    preventing resource exhaustion from simultaneous crawls.
  */
 
 import { Job, CrawlOptions } from '../types/crawl.js';
@@ -17,6 +22,7 @@ import crypto from 'crypto';
 
 // configurable via environment variables
 const MAX_JOBS = parseInt(process.env.MAX_JOBS || '200', 10);
+const MAX_CONCURRENT_JOBS = parseInt(process.env.MAX_CONCURRENT_JOBS || '5', 10);
 const JOB_TTL_MS = parseInt(process.env.JOB_TTL_MS || '3600000', 10); // default 1 hour
 const JOB_CLEANUP_INTERVAL_MS = parseInt(
   process.env.JOB_CLEANUP_INTERVAL_MS || '300000', // default every 5 minutes
@@ -43,6 +49,7 @@ export class JobManager {
 
     logger.info('JobManager initialised', {
       maxJobs: MAX_JOBS,
+      maxConcurrentJobs: MAX_CONCURRENT_JOBS,
       jobTtlMs: JOB_TTL_MS,
       cleanupIntervalMs: JOB_CLEANUP_INTERVAL_MS,
     });
@@ -53,6 +60,19 @@ export class JobManager {
    */
   destroy(): void {
     clearInterval(this.cleanupTimer);
+  }
+
+  /**
+   * Count jobs that are currently active (pending or running).
+   */
+  private getActiveJobCount(): number {
+    let count = 0;
+    for (const job of this.jobs.values()) {
+      if (job.status === 'pending' || job.status === 'running') {
+        count++;
+      }
+    }
+    return count;
   }
 
   /**
@@ -68,9 +88,7 @@ export class JobManager {
    * Create a new crawl job
    */
   createJob(options: CrawlOptions): string {
-    // enforce hard cap on stored jobs
-    // Checked before insertion so the map never exceeds MAX_JOBS entries.
-    // This bounds memory even if cleanupOldJobs() has not run yet.
+    // ── VULN-004: enforce hard cap on total stored jobs ───────────────────
     if (this.jobs.size >= MAX_JOBS) {
       logger.warn('Job limit reached, rejecting new job', {
         currentJobs: this.jobs.size,
@@ -79,6 +97,19 @@ export class JobManager {
       throw new Error(
         `Job limit reached. The server is already tracking ${this.jobs.size} jobs ` +
           `(maximum ${MAX_JOBS}). Wait for existing jobs to complete or increase MAX_JOBS.`
+      );
+    }
+
+    // ── VULN-005: enforce cap on simultaneously active (pending/running) jobs
+    const activeCount = this.getActiveJobCount();
+    if (activeCount >= MAX_CONCURRENT_JOBS) {
+      logger.warn('Concurrent job limit reached, rejecting new job', {
+        activeJobs: activeCount,
+        maxConcurrentJobs: MAX_CONCURRENT_JOBS,
+      });
+      throw new Error(
+        `Too many active jobs. ${activeCount} jobs are currently pending or running ` +
+          `(maximum ${MAX_CONCURRENT_JOBS}). Wait for a job to finish before submitting a new one.`
       );
     }
 

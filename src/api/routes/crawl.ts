@@ -52,6 +52,17 @@ export async function crawlRoutes(fastify: FastifyInstance): Promise<void> {
       const err = error as Error;
       logger.error('Failed to create crawl job', err);
 
+      // surface capacity errors as 429, not 500
+      if (
+        err.message.startsWith('Too many active jobs') ||
+        err.message.startsWith('Job limit reached')
+      ) {
+        return reply.status(429).send({
+          error: 'Too many jobs',
+          message: err.message,
+        });
+      }
+
       return reply.status(500).send({
         error: 'Failed to create crawl job',
         message: err.message,
