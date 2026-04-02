@@ -1,6 +1,13 @@
 /**
  * Job Manager
  * Manages crawl job lifecycle and storage
+ *
+ * Unbounded In-Memory Job Growth:
+ *  - MAX_JOBS: hard cap on total stored jobs (active + completed/failed).
+ *    createJob() throws when the cap is reached, preventing unbounded growth.
+ *  - Automatic cleanup: a setInterval fires every JOB_CLEANUP_INTERVAL_MS
+ *    to evict completed/failed jobs older than JOB_TTL_MS, keeping the
+ *    in-memory map bounded even under sustained load.
  */
 
 import { Job, CrawlOptions } from '../types/crawl.js';
@@ -8,8 +15,45 @@ import { crawl } from '../crawler/engine.js';
 import { logger } from '../utils/logger.js';
 import crypto from 'crypto';
 
+// configurable via environment variables
+const MAX_JOBS = parseInt(process.env.MAX_JOBS || '200', 10);
+const JOB_TTL_MS = parseInt(process.env.JOB_TTL_MS || '3600000', 10); // default 1 hour
+const JOB_CLEANUP_INTERVAL_MS = parseInt(
+  process.env.JOB_CLEANUP_INTERVAL_MS || '300000', // default every 5 minutes
+  10
+);
+
 export class JobManager {
   private jobs: Map<string, Job> = new Map();
+  private cleanupTimer: ReturnType<typeof setInterval>;
+
+  constructor() {
+    // Automatic periodic cleanup
+    // Runs on a fixed interval to evict completed/failed jobs older than
+    // JOB_TTL_MS, preventing unbounded heap growth over time.
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupOldJobs(JOB_TTL_MS);
+    }, JOB_CLEANUP_INTERVAL_MS);
+
+    // Allow Node.js to exit cleanly even if the timer is still active
+    // (prevents the timer from keeping the process alive in tests/scripts).
+    if (this.cleanupTimer.unref) {
+      this.cleanupTimer.unref();
+    }
+
+    logger.info('JobManager initialised', {
+      maxJobs: MAX_JOBS,
+      jobTtlMs: JOB_TTL_MS,
+      cleanupIntervalMs: JOB_CLEANUP_INTERVAL_MS,
+    });
+  }
+
+  /**
+   * Stop the background cleanup timer (useful in tests / graceful shutdown).
+   */
+  destroy(): void {
+    clearInterval(this.cleanupTimer);
+  }
 
   /**
    * Generate unique job ID
@@ -24,6 +68,20 @@ export class JobManager {
    * Create a new crawl job
    */
   createJob(options: CrawlOptions): string {
+    // enforce hard cap on stored jobs
+    // Checked before insertion so the map never exceeds MAX_JOBS entries.
+    // This bounds memory even if cleanupOldJobs() has not run yet.
+    if (this.jobs.size >= MAX_JOBS) {
+      logger.warn('Job limit reached, rejecting new job', {
+        currentJobs: this.jobs.size,
+        maxJobs: MAX_JOBS,
+      });
+      throw new Error(
+        `Job limit reached. The server is already tracking ${this.jobs.size} jobs ` +
+          `(maximum ${MAX_JOBS}). Wait for existing jobs to complete or increase MAX_JOBS.`
+      );
+    }
+
     const jobId = this.generateJobId();
 
     const job: Job = {
