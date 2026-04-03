@@ -87,10 +87,16 @@ export async function scrapeRoutes(fastify: FastifyInstance): Promise<void> {
   // Batch URL scrape endpoint
   fastify.post('/api/scrape/batch', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
+      // enforce upper bound on URL array and concurrency
+      const MAX_BATCH_URLS = parseInt(process.env.MAX_BATCH_URLS || '50', 10);
+
       // Validation schema for batch request
       const BatchScrapeRequestSchema = z.object({
-        urls: z.array(z.string().url('Invalid URL format')).min(1, 'At least one URL required'),
-        concurrency: z.number().min(1).max(20).optional(),
+        urls: z
+          .array(z.string().url('Invalid URL format'))
+          .min(1, 'At least one URL required')
+          .max(MAX_BATCH_URLS, `Maximum ${MAX_BATCH_URLS} URLs per batch request`),
+        concurrency: z.number().min(1).max(10).optional(), // capped at 10 (was 20)
       });
 
       const validation = BatchScrapeRequestSchema.safeParse(request.body);
