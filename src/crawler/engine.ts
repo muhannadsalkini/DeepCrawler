@@ -78,6 +78,11 @@ export async function crawl(options: CrawlOptions): Promise<CrawlResult> {
         }
       }
 
+      // SSRF guard: DNS-resolve the URL to block decimal/octal/hex IP encodings
+      // and DNS rebinding attacks that the synchronous isPrivateUrl() cannot catch.
+      const { assertSafeUrl } = await import('../utils/ssrf-guard.js');
+      await assertSafeUrl(url);
+
       // Use rate limiter for fetch
       const { rateLimiter } = await import('../utils/rate-limiter.js');
       const fetchResult = await rateLimiter.schedule(() =>

@@ -5,6 +5,20 @@
 
 import { CrawlOptions } from '../types/crawl.js';
 import { getDomain } from './normalizer.js';
+import { isPrivateIp } from '../utils/ssrf-guard.js';
+
+// Hostnames that are always private regardless of DNS resolution.
+// Mirrors the BLOCKED_HOSTNAMES set in ssrf-guard.ts so rules.ts
+// can perform a fast synchronous pre-filter before the engine runs
+// the full async DNS-resolving assertSafeUrl() check.
+const BLOCKED_HOSTNAMES = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  '0.0.0.0',
+  '::ffff:127.0.0.1',
+  '::ffff:7f00:1',
+]);
 
 export class CrawlRules {
   private options: CrawlOptions;
@@ -46,35 +60,29 @@ export class CrawlRules {
   }
 
   /**
-   * Check if URL is a private/local address
+   * Check if URL is a private/local address.
+   *
+   * This is a synchronous fast-path filter that catches the most common
+   * cases. It covers:
+   *   - All blocked hostnames (localhost, 0.0.0.0, ::1, IPv4-mapped loopback)
+   *   - All private IPv4 ranges (RFC 1918, link-local, cloud metadata, etc.)
+   *   - All private IPv6 ranges (loopback, unique-local, link-local, mapped)
+   *
+   * NOTE: decimal/octal/hex IP encoding tricks (e.g. http://2130706433/)
+   * are defeated by the async `assertSafeUrl()` call in engine.ts which
+   * performs DNS resolution and validates the *resolved* IP address.
    */
   isPrivateUrl(url: string): boolean {
     try {
       const urlObj = new URL(url);
       const hostname = urlObj.hostname.toLowerCase();
 
-      // Check for localhost
-      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
-        return true;
-      }
+      // Fast blocklist check (catches localhost, 0.0.0.0, ::ffff:127.0.0.1, etc.)
+      if (BLOCKED_HOSTNAMES.has(hostname)) return true;
 
-      // Check for private IP ranges
-      const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-      const match = hostname.match(ipv4Regex);
-
-      if (match) {
-        const octets = match.slice(1, 5).map(Number);
-        // 10.0.0.0/8
-        if (octets[0] === 10) return true;
-        // 172.16.0.0/12
-        if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) return true;
-        // 192.168.0.0/16
-        if (octets[0] === 192 && octets[1] === 168) return true;
-        // 169.254.0.0/16 (link-local)
-        if (octets[0] === 169 && octets[1] === 254) return true;
-      }
-
-      return false;
+      // Comprehensive IP range check from ssrf-guard (covers all RFC 1918,
+      // link-local, cloud metadata, IPv6 private, and reserved ranges)
+      return isPrivateIp(hostname);
     } catch {
       return false;
     }
