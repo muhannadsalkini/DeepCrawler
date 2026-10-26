@@ -22,8 +22,8 @@
     "fastify",
     "typescript"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "Muhannad Salkini",
+  "license": "MIT",
   "dependencies": {
     "@fastify/rate-limit": "^10.3.0",
     "bottleneck": "^2.19.5",
