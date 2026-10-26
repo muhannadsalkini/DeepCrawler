@@ -14,7 +14,7 @@ import { FetchOptions, FetchResult } from '../types/crawl.js';
 import { assertSafeUrl } from '../utils/ssrf-guard.js';
 import { logger } from '../utils/logger.js';
 
-const DEFAULT_USER_AGENT = 'DeepCrawler/1.0 (+https://github.com/deepcrawler)';
+const DEFAULT_USER_AGENT = 'DeepCrawler/1.0 (+https://github.com/muhannadsalkini/DeepCrawler)';
 const DEFAULT_TIMEOUT = 10000; // 10 seconds
 const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_REDIRECTS = 5; // Maximum redirect hops allowed

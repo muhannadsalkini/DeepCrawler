@@ -8,224 +8,44 @@
 
 ## Initial Setup
 
-### 1. Clone Repository
-
 ```bash
-cd /Users/muhannadsalkini/DeepCrawler
+git clone https://github.com/muhannadsalkini/DeepCrawler.git
+cd DeepCrawler
+npm install
+cp .env.example .env   # then set API_KEY (e.g. openssl rand -hex 32)
+npm run dev
 ```
 
-### 2. Initialize Project
-
-```bash
-# Initialize npm project
-npm init -y
-
-# Install core dependencies
-npm install fastify@^4.25.0 undici@^6.6.0 cheerio@^1.0.0-rc.12 zod@^3.22.0 bottleneck@^2.19.5
-
-# Install dev dependencies
-npm install -D typescript@^5.3.0 @types/node@^20.11.0 tsx@^4.7.0 \
-  eslint@^8.56.0 @typescript-eslint/parser@^6.19.0 @typescript-eslint/eslint-plugin@^6.19.0 \
-  prettier@^3.2.0 vitest@^1.2.0
-```
-
-### 3. Configure TypeScript
-
-Create `tsconfig.json`:
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "lib": ["ES2022"],
-    "moduleResolution": "node",
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
-}
-```
-
-### 4. Configure ESLint
-
-Create `.eslintrc.json`:
-
-```json
-{
-  "parser": "@typescript-eslint/parser",
-  "extends": [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended"
-  ],
-  "parserOptions": {
-    "ecmaVersion": 2022,
-    "sourceType": "module"
-  },
-  "rules": {
-    "@typescript-eslint/no-explicit-any": "error",
-    "@typescript-eslint/explicit-function-return-type": "warn",
-    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
-    "no-console": "warn"
-  }
-}
-```
-
-### 5. Configure Prettier
-
-Create `.prettierrc`:
-
-```json
-{
-  "singleQuote": true,
-  "trailingComma": "es5",
-  "tabWidth": 2,
-  "semi": true,
-  "printWidth": 100
-}
-```
-
-### 6. Update package.json
-
-Add scripts:
-
-```json
-{
-  "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "test": "vitest",
-    "test:coverage": "vitest --coverage",
-    "type-check": "tsc --noEmit"
-  }
-}
-```
-
-### 7. Environment Variables
-
-Create `.env.example`:
-
-```bash
-# Server Configuration
-PORT=3000
-HOST=0.0.0.0
-NODE_ENV=development
-
-# Crawler Defaults
-DEFAULT_MAX_DEPTH=3
-DEFAULT_MAX_PAGES=100
-DEFAULT_CONCURRENCY=5
-DEFAULT_TIMEOUT=10000
-
-# Rate Limiting
-RATE_LIMIT_MAX_CONCURRENT=2
-RATE_LIMIT_MIN_TIME=100
-
-# Safety
-MAX_RESPONSE_SIZE=10485760
-USER_AGENT="DeepCrawler/1.0 (+https://yourwebsite.com/bot)"
-RESPECT_ROBOTS_TXT=false
-
-# Logging
-LOG_LEVEL=info
-```
-
-Create `.env` (copy from example):
-
-```bash
-cp .env.example .env
-```
-
-### 8. Git Setup
-
-Create `.gitignore`:
-
-```
-# Dependencies
-node_modules/
-
-# Build output
-dist/
-
-# Environment
-.env
-.env.local
-
-# Logs
-logs/
-*.log
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Test coverage
-coverage/
-```
+All configuration lives in `.env` — see [`.env.example`](../.env.example) for every variable and its default.
+Every request except `GET /health` must send the `x-api-key` header; if `API_KEY` is unset the API fails closed with `503`.
 
 ## Project Structure
-
-Create the folder structure:
-
-```bash
-mkdir -p src/{api/routes,crawler,jobs,utils,types}
-mkdir -p tests/{unit,integration,e2e}
-```
-
-Your structure should look like:
 
 ```
 DeepCrawler/
 ├── src/
 │   ├── api/
-│   │   └── routes/
-│   ├── crawler/
-│   ├── jobs/
-│   ├── utils/
+│   │   ├── middleware/   # API key auth
+│   │   └── routes/       # /api/scrape, /api/crawl
+│   ├── crawler/          # engine, fetcher, parser, extractor, normalizer, queue, rules, metrics, batch
+│   ├── jobs/             # async job manager
+│   ├── storage/          # queue / visited-set interfaces + in-memory implementations
 │   ├── types/
+│   ├── utils/            # logger, rate limiter, robots.txt, SSRF guard, timer
 │   └── server.ts
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-├── .env
+├── scripts/
+│   └── test-crawl.js     # manual smoke test against the built engine
+├── docs/
 ├── .env.example
-├── .eslintrc.json
-├── .gitignore
-├── .prettierrc
 ├── package.json
-├── tsconfig.json
-└── README.md
+└── tsconfig.json
 ```
 
 ## Development Workflow
 
 ### Phase-by-Phase Development
 
-Follow the 8 phases outlined in the plan:
+The project was built in 8 phases, following the original [plan](./plan.txt):
 
 #### Phase 1: Project Setup ✅
 
@@ -530,18 +350,10 @@ node --max-old-space-size=4096 dist/server.js
 6. **Commit Often**: Small, focused commits
 7. **Document Decisions**: Add comments for non-obvious logic
 
-## Next Steps
-
-1. Complete Phase 1 (setup)
-2. Create health endpoint
-3. Test build pipeline
-4. Move to Phase 2 (single URL scraper)
-
-See [task.md](./task.md) for the complete checklist.
 
 ---
 
 **Quick Reference**:
-- [README](./README.md) - Project overview
+- [README](../README.md) - Project overview
 - [ARCHITECTURE](./ARCHITECTURE.md) - Technical design
 - [API](./API.md) - API documentation

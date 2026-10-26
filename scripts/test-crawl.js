@@ -2,8 +2,8 @@
  * Simple test script for the crawl engine
  */
 
-import { crawl } from './dist/crawler/engine.js';
-import { logger } from './dist/utils/logger.js';
+import { crawl } from '../dist/crawler/engine.js';
+import { logger } from '../dist/utils/logger.js';
 
 async function testCrawl() {
     console.log('Testing crawl engine...\n');

@@ -8,7 +8,14 @@ http://localhost:3000/api
 
 ## Authentication
 
-Currently no authentication required (to be added in future phases).
+Every endpoint except `GET /health` requires an API key in the `x-api-key` header, matching the server's `API_KEY` environment variable (compared in constant time).
+
+```bash
+curl http://localhost:3000/api/crawl/<jobId> -H "x-api-key: $API_KEY"
+```
+
+- Missing or wrong key → `401 Unauthorized`
+- `API_KEY` not configured on the server → `503 Service Unavailable` (fail-closed)
 
 ---
 
@@ -363,6 +370,7 @@ X-RateLimit-Reset: 1707305520
 **Single scrape**:
 ```bash
 curl -X POST http://localhost:3000/api/scrape \
+  -H "x-api-key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com"}'
 ```
@@ -370,6 +378,7 @@ curl -X POST http://localhost:3000/api/scrape \
 **Start crawl**:
 ```bash
 curl -X POST http://localhost:3000/api/crawl \
+  -H "x-api-key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "startUrl": "https://example.com",
@@ -381,7 +390,7 @@ curl -X POST http://localhost:3000/api/crawl \
 
 **Check status**:
 ```bash
-curl http://localhost:3000/api/crawl/job_1707305448_abc123
+curl http://localhost:3000/api/crawl/job_1707305448_abc123 -H "x-api-key: $API_KEY"
 ```
 
 ### JavaScript (fetch)
